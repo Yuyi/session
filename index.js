@@ -108,10 +108,12 @@ function session(options) {
   var rollingSessions = Boolean(opts.rolling)
 
   // get the save uninitialized session option
-  var saveUninitializedSession = opts.saveUninitialized
+  var saveUninitializedSession = opts.saveUninitialized;
 
   // get the cookie signing secret
   var secret = opts.secret
+
+  var unsignedCookieVerifier = opts.unsignedCookieVerifier;
 
   if (typeof generateId !== 'function') {
     throw new TypeError('genid option must be a function');
@@ -145,6 +147,10 @@ function session(options) {
   if (!secret) {
     deprecate('req.secret; provide secret option');
   }
+
+  if (unsignedCookieVerifier !== undefined && !(unsignedCookieVerifier instanceof RegExp))
+    throw new TypeError('unsignedCookieVerifier must be RegExt');
+
 
   // notify user that this store is not
   // meant for a production environment
@@ -213,7 +219,7 @@ function session(options) {
     req.sessionStore = store;
 
     // get the session ID from the cookie
-    var cookieId = req.sessionID = getcookie(req, name, secrets);
+    var cookieId = req.sessionID = getcookie(req, name, secrets, unsignedCookieVerifier);
 
     // set-cookie
     onHeaders(res, function(){
@@ -509,7 +515,7 @@ function generateSessionId(sess) {
  * @private
  */
 
-function getcookie(req, name, secrets) {
+function getcookie(req, name, secrets, unsignedCookieVerifier) {
   var header = req.headers.cookie;
   var raw;
   var val;
@@ -530,6 +536,8 @@ function getcookie(req, name, secrets) {
         }
       } else {
         debug('cookie unsigned')
+        if (unsignedCookieVerifier instanceof RegExp && unsignedCookieVerifier.test(raw))
+          val = raw;
       }
     }
   }
